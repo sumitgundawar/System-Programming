@@ -1,0 +1,306 @@
+#include<stdio.h>
+#include<string.h>
+#include<stdlib.h>
+typedef struct node
+{
+	char symb[20];
+	int addr;
+	struct node *link;
+}NODE;
+typedef struct lit_tab
+{
+	char lit[20];
+	int addr;
+}LITTAB;
+char optab[][6]={"STOP","ADD","SUB","MULT","MOVER","MOVEM","COMP","BC","DIV","READ","PRINT"};
+char regtab[][6]={"AREG,","BREG,","CREG,","DREG,"};
+char condtab[][4]={"LT","LE","EQ","GT","GE","ANY"};
+char astab[][6]={"START","END","ORIGIN","EQU","LTORG"};
+char dltab[][3]={"DS","DL"};
+LITTAB littab[30];
+FILE *fp;
+char fname[20],buff[80],t1[20],t2[20],t3[20],t4[20];
+int n,lc,no;
+NODE *first,*last;
+int pooltab[5],lit_cnt,pool_cnt=0;
+int search_dltab(char *s)
+{
+	if(strcmp(s,"DS")==0)
+		return 1;
+	else if(strcmp(s,"DC")==0)
+		return 2;
+	else 
+		return -1;
+}
+int search_as(char *s)
+{
+	int i;
+	for(i=0;i<5;i++)
+		if(strcmp(s,astab[i])==0)
+			return i+1;
+	return -1;
+}
+void add_symb1(char *s,int addr)
+{
+	NODE *p;
+	p=(NODE*)malloc(sizeof(NODE));
+	strcpy(p->symb,s);
+	p->addr=addr;
+	p->link=NULL;
+	if(first==NULL)
+		first=p;
+	else
+		last->link=p;
+	last=p;
+}
+NODE *search_symb(char *s)
+{
+	NODE *p;
+	p=first;
+	while(p!=NULL)
+	{
+		if(strcmp(p->symb,s)==0)
+			break;
+		p=p->link;
+	}
+	return p;
+}
+int search_symtab(char *s)
+{
+	int i=1;
+	NODE *p;
+	p=first;
+	while(p!=NULL)
+	{
+		if(strcmp(p->symb,s)==0)
+			return i;
+		p=p->link;
+		i++;
+	}
+	return -1;
+}
+int search_optab(char *s)
+{
+	int i;
+	for(i=0;i<11;i++)
+		if(strcmp(optab[i],s)==0)
+			return i;
+	return -1;
+}
+int search_regtab(char *s)
+{
+	int i;
+	for(i=0;i<4;i++)
+		if(strcmp(regtab[i],s)==0)
+			return i+1;
+	return -1;
+}
+int search_condtab(char *s)
+{
+	int i;
+	for(i=0;i<6;i++)
+		if(strcmp(condtab[i],s)==0)
+			return i;
+	return -1;
+}
+int search_littab(char *s,int addr)
+{
+	int i,j;
+	for(i=0;i<pool_cnt;i++)
+		if(littab[pooltab[i]].addr>lc) break;
+	for(j=pooltab[i];j<pooltab[i+1];j++)
+		if(strcmp(littab[j].lit,s)==0)
+			return j;
+	return -1;
+}
+int search_lit(char *s)
+{
+	int i;
+	for(i=0;i<lit_cnt;i++)
+		if(strcmp(littab[i].lit,s)==0)
+			return i+1;
+	return -1;
+}
+void disp_prog()
+{	
+	FILE *fp;
+	fp=fopen(fname,"r");
+	while(fgets(buff,80,fp)!=NULL)
+	{
+		printf("%s",buff);
+	}
+}
+void varient()
+{
+	int i,j,k;
+	NODE *p;
+	rewind(fp);
+	while(fgets(buff,80,fp)!=NULL)
+	{
+		n=sscanf(buff,"%s%s%s%s",t1,t2,t3,t4);
+		switch(n)
+		{
+			case 4:strcpy(t1,t2);
+			       strcpy(t2,t3);
+			       strcpy(t3,t4);			
+			case 3:
+			       if(search_symtab(t1)==-1)
+			       {
+				       i=search_optab(t1);
+				       if(i>=0)
+				       {
+					       j=search_regtab(t2);	
+					       if(t3[0]=='=')
+					       {
+						       k=search_lit(t3);
+						       printf("\n(IS,%d)%d(L,0%d)",i,j,k);
+					       }
+					       else
+					       {
+						       k=search_symtab(t3);
+						       printf("\n(IS,%d)%d(S,%d)",i,j,k);
+					       }
+				       }
+				       break;
+			       }
+				else
+				{
+			       if(strcmp(t2,"DS")==0||strcmp(t2,"DC")==0)
+			       {
+				       k=search_dltab(t2);
+				       j=atoi(t3);
+				       printf("\n(DL,%d)(C,%d)",k,j);	
+				       break;
+			       }	       	
+			       strcpy(t1,t2);
+			       strcpy(t2,t3);
+}		
+	case 2:	if(strcmp(t1,"START")==0)
+				{
+					lc=atoi(t2);
+					printf("\n(AD,01)(C,%d)",lc);
+					break;
+				}
+				i=search_optab(t1);
+				if(i==9||i==10)
+				{
+					if(t2[0]=='=')
+					{
+						j=search_lit(t2);
+						k=search_optab(t1);
+						printf("\n(IS,%d)(L,0%d)",k,j);
+					}
+					else
+					{
+						j=search_optab(t1);
+						k=search_symtab(t2);
+						printf("\n(IS,%d)(S,%d)",j,k);
+					}
+				}
+				break;
+			case 1:if(strcmp(t1,"END")==0||strcmp(t1,"LTORG")==0)
+			       {
+				       j=search_as(t1);
+				       if(j>=0)
+					       printf("\n(AD,0%d)",j);
+				       else printf("\nError");
+			       }
+			       if(strcmp(t1,"STOP")==0)
+				       printf("\n(IS,00)");				
+			       break;
+
+		}
+	}
+	fclose(fp);
+}
+void pass_one()
+{
+	int i;
+	NODE *p;
+	printf("Enter source file name: ");
+	scanf("%s",fname);
+	fp=fopen(fname,"r");
+	if(fp==NULL)
+	{
+		printf("File %s not found\n",fname);
+		exit(0);
+	}
+	disp_prog();
+	while(fgets(buff,80,fp)!=NULL)
+	{
+		n=sscanf(buff,"%s%s%s%s",t1,t2,t3,t4);
+		switch(n)
+		{
+			case 1:if(strcmp(t1,"END")==0||strcmp(t1,"LTORG")==0)
+			       {
+				       for(i=pooltab[pool_cnt];i<lit_cnt;i++)
+					       littab[i].addr=lc++;
+				       pooltab[++pool_cnt]=lit_cnt;
+				       lc--;
+			       }
+			       break;
+			case 2:if(strcmp(t1,"START")==0)
+			       {
+				       lc=atoi(t2)-1;
+				       break;
+			       }
+			       i=search_optab(t1);
+			       if(i==9||i==10)
+			       {
+				       if(t2[0]=='=')
+					      strcpy(littab[lit_cnt++].lit,t2);
+				       break;
+			       }
+			       i=search_optab(t2);
+			       if(i==0)
+				       add_symb1(t1,lc);
+			       break;
+			case 3:
+			       if(strcmp(t2,"DS")==0)
+			       {
+				       add_symb1(t1,lc);
+				       lc+=atoi(t3)-1;
+				       break;
+			       }
+			       if(strcmp(t2,"DC")==0)
+			       {
+				       add_symb1(t1,lc);
+				       break;
+			       }
+			       if(strcmp(t2,"EQU")==0)
+			       {
+				       p=search_symb(t3);
+				       add_symb1(t1,p->addr);
+				       lc--;
+				       break;
+			       }
+			       i=search_optab(t1);
+			       if(i>=1&&i<=8)
+			       {
+				       if(t3[0]=='=')
+					       strcpy(littab[lit_cnt++].lit,t3);
+				       break;
+			       }
+			       add_symb1(t1,lc);
+			       if(t3[0]=='=')
+				       strcpy(littab[lit_cnt++].lit,t3);
+			       break;
+			case 4:if(strcmp(t1,"ORIGIN")==0)
+			       {
+				       p = search_symb(t2);
+				       lc = p->addr+atoi(t4)-1;
+				       break;
+			       }
+			       add_symb1(t1,lc);
+			       if(t4[0]=='=')
+				       strcpy(littab[lit_cnt++].lit,t4);
+		}
+		lc++;
+	}
+}
+main()
+{
+	pass_one();
+	varient();
+}
+
